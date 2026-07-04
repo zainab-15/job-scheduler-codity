@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance } from 'fastify';
+import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { type DB, type Env, sql } from '@scheduler/shared';
@@ -19,6 +20,11 @@ export interface BuildServerArgs {
   db: DB;
   jwtSecret: string;
   logLevel: Env['LOG_LEVEL'];
+  /** Comma-separated allowed origins. Unset = no CORS plugin registered at
+   *  all, matching today's local-dev behavior (Vite dev proxy sidesteps
+   *  CORS — see docs/design-decisions.md). Set this once web and api are
+   *  deployed on separate origins. */
+  corsOrigin?: string;
 }
 
 /** Exported (not just used by index.ts) so tests can build a real server
@@ -46,6 +52,11 @@ export async function buildServer(args: BuildServerArgs): Promise<FastifyInstanc
   registerDb(fastify, args.db);
   registerErrorHandler(fastify);
   await registerAuth(fastify, args.jwtSecret);
+
+  if (args.corsOrigin) {
+    const origins = args.corsOrigin.split(',').map((o) => o.trim());
+    await fastify.register(cors, { origin: origins });
+  }
 
   await fastify.register(swagger, {
     openapi: { info: { title: 'Distributed Job Scheduler API', version: '0.1.0' } },

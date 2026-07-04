@@ -7,8 +7,8 @@ import type { Database } from './types.js';
 // dependency — shared is the one place that touches Postgres.
 export { sql };
 
-export function createDb(connectionString: string, poolMax = 10): Kysely<Database> {
-  const pool = createPool(connectionString, poolMax);
+export function createDb(connectionString: string, poolMax = 10, ssl = false): Kysely<Database> {
+  const pool = createPool(connectionString, poolMax, ssl);
   return createDbFromPool(pool);
 }
 

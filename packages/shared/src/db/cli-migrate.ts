@@ -22,7 +22,7 @@ async function main(): Promise<void> {
   }
 
   const log = createLogger('migrate', env.LOG_LEVEL);
-  const db = createDb(env.DATABASE_URL, env.PG_POOL_MAX);
+  const db = createDb(env.DATABASE_URL, env.PG_POOL_MAX, env.PGSSL);
   let ok = true;
   try {
     const applied = await migrateToLatest(db);
