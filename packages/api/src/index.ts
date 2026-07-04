@@ -23,8 +23,13 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const db = createDb(env.DATABASE_URL, env.PG_POOL_MAX);
-  const server = await buildServer({ db, jwtSecret: env.JWT_SECRET, logLevel: env.LOG_LEVEL });
+  const db = createDb(env.DATABASE_URL, env.PG_POOL_MAX, env.PGSSL);
+  const server = await buildServer({
+    db,
+    jwtSecret: env.JWT_SECRET,
+    logLevel: env.LOG_LEVEL,
+    corsOrigin: env.CORS_ORIGIN,
+  });
 
   const onSignal = (sig: string): void => {
     server.log.info({ sig }, 'shutting down');

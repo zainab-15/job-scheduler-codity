@@ -11,6 +11,13 @@ const EnvSchema = z.object({
   DATABASE_URL: z.string().url(),
   TEST_DATABASE_URL: z.string().url().optional(),
   PG_POOL_MAX: z.coerce.number().int().positive().default(10),
+  // Managed Postgres (Supabase, Neon, Railway's own PG plugin, ...) requires
+  // TLS. node-postgres does not reliably infer this from `sslmode` in the
+  // connection string, so it's an explicit opt-in rather than sniffed from the
+  // URL. z.coerce.boolean() is deliberately NOT used here: Boolean("false") is
+  // true in JS, so PGSSL=false would coerce to true — an enum + transform
+  // avoids that footgun.
+  PGSSL: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
     .default('info'),
@@ -30,6 +37,10 @@ const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   // R30: min length enforced so an intern can't ship JWT_SECRET=secret.
   JWT_SECRET: z.string().min(32).optional(),
+  // Comma-separated list of allowed origins for the deployed web app. Unset
+  // (the local-dev default) keeps CORS off entirely — local integration relies
+  // on the Vite dev proxy instead (see docs/design-decisions.md).
+  CORS_ORIGIN: z.string().optional(),
 }).superRefine((v, ctx) => {
   // Cross-field *_MS invariants (the .env.example promises these). A live worker
   // must heartbeat well within its lease, or the reaper reclaims jobs out from

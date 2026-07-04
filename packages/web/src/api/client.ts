@@ -13,10 +13,16 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
+// Falls back to '/api/v1' (same-origin) for local dev, where the Vite proxy
+// forwards it to the API on :3000. A production build sets VITE_API_URL to
+// the deployed API's own origin, since web and api are separate Railway
+// services there — see DEPLOY.md.
+const baseURL = import.meta.env.VITE_API_URL ?? '/api/v1';
+
 // indexes:null serializes arrays as `status=a&status=b` (repeated key, no
 // brackets), which is what the API's jobListQuerySchema expects — the default
 // axios `status[]=a` form would arrive under the wrong key.
-export const api = axios.create({ baseURL: '/api/v1', paramsSerializer: { indexes: null } });
+export const api = axios.create({ baseURL, paramsSerializer: { indexes: null } });
 
 // Attach the bearer token on every request.
 api.interceptors.request.use((config) => {

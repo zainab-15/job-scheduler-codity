@@ -17,7 +17,7 @@ async function main(): Promise<void> {
   }
 
   const log = createLogger('worker', env.LOG_LEVEL);
-  const db = createDb(env.DATABASE_URL, env.PG_POOL_MAX);
+  const db = createDb(env.DATABASE_URL, env.PG_POOL_MAX, env.PGSSL);
   const cfg = loadWorkerConfig();
   const registry = buildDefaultRegistry();
 

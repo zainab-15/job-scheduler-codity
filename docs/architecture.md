@@ -128,3 +128,13 @@ The claim query — and every other SQL statement — lives **once** in
 `packages/shared/src/queries/` and is imported by both `api` and `worker`, so
 the claim/fence/retry logic physically cannot diverge between the process that
 enqueues jobs and the process that runs them.
+
+## Deployment topology
+
+The three-services-plus-one-database shape above maps directly onto Railway
+(api + worker + web, each an always-on process — Nixpacks, no Dockerfile) and
+Supabase (the one Postgres). The `worker`'s always-on requirement isn't a
+hosting preference: it holds the leader-election advisory lock and the
+per-process poll/heartbeat loops continuously, so it cannot run on a
+serverless/functions platform without breaking leader election. Step-by-step
+guide: [DEPLOY.md](../DEPLOY.md).

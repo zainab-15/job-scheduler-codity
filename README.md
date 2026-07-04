@@ -13,12 +13,12 @@ Four npm workspaces under `packages/*`:
 | `api` | `@scheduler/api` | Fastify 5 REST API under `/api/v1`, JWT + argon2id auth, org-scoped multi-tenancy, Swagger docs, the `seed` script. |
 | `web` | `@scheduler/web` | React 18 + Vite dashboard (TanStack Query, React Router, Recharts). Talks to the API same-origin via a dev proxy. |
 
-More detail: [docs/architecture.md](docs/architecture.md) · [docs/er-diagram.md](docs/er-diagram.md) · [docs/design-decisions.md](docs/design-decisions.md) · [docs/api-curl-walkthrough.md](docs/api-curl-walkthrough.md)
+More detail: [docs/architecture.md](docs/architecture.md) · [docs/er-diagram.md](docs/er-diagram.md) · [docs/design-decisions.md](docs/design-decisions.md) · [docs/api-curl-walkthrough.md](docs/api-curl-walkthrough.md) · [DEPLOY.md](DEPLOY.md)
 
 ## Prerequisites
 
 - **Node 22** (`.nvmrc` pins it; the root `package.json` enforces `>=22`)
-- **Docker** — only for the Postgres 16 container (`docker compose`)
+- **Docker** — only for local dev's Postgres 16 container (`docker compose`); not used anywhere in deployment, see below
 - **npm** (workspaces; ships with Node)
 
 ## Quick start
@@ -106,11 +106,18 @@ npm run test:int  # integration tests — needs the compose Postgres up (npm run
 - **Swagger UI: http://localhost:3000/docs** — generated from the route schemas, unauthenticated, browsable.
 - **[docs/api-curl-walkthrough.md](docs/api-curl-walkthrough.md)** — a copy-paste `curl` walkthrough of every endpoint: register/login, projects/queues, all job types (immediate / delayed / scheduled / batch / recurring cron), watch-a-job-complete, retry → backoff → DLQ → requeue, cancel, and metrics/health.
 
+## Deployment
+
+Runs on **Railway (api + worker + web) + Supabase (Postgres)** with zero
+Docker involved — Railway builds directly from source. Full step-by-step
+guide, env vars, and the two live-demo gotchas worth knowing about in advance:
+**[DEPLOY.md](DEPLOY.md)**.
+
 ## Limitations / out of scope
 
 Honest boundaries, kept deliberately:
 
-- **Docker compose runs Postgres only.** The app services (API, workers, web) run via npm scripts, not containers. This is intentional — the kill demo above proves the distributed property with real OS processes and `kill -9`, which is more convincing than container orchestration would be here. Multi-worker distribution needs nothing more than running `npm run dev:worker` in more than one terminal (or on more than one host pointed at the same `DATABASE_URL`).
+- **Docker compose runs Postgres only, in local dev.** The app services (API, workers, web) run via npm scripts, not containers — in local dev *and* in production (see [DEPLOY.md](DEPLOY.md)). This is intentional — the kill demo above proves the distributed property with real OS processes and `kill -9`, which is more convincing than container orchestration would be here. Multi-worker distribution needs nothing more than running `npm run dev:worker` in more than one terminal (or on more than one host pointed at the same `DATABASE_URL`).
 - **Single user per org.** No RBAC, roles, or team invites — one account owns one organization.
 - **No auth refresh tokens.** Login returns a single JWT; when it expires you log in again.
 - **No rate limiting** on the API.

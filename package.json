@@ -17,6 +17,9 @@
     "dev:worker": "npm run dev -w @scheduler/worker",
     "dev:api": "npm run dev -w @scheduler/api",
     "dev:web": "npm run dev -w @scheduler/web",
+    "start:worker": "npm run start -w @scheduler/worker",
+    "start:api": "npm run start -w @scheduler/api",
+    "start:web": "npm run start -w @scheduler/web",
     "seed": "npm run seed -w @scheduler/api",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down"
