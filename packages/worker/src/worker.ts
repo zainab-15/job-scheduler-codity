@@ -22,6 +22,11 @@ async function raceWithTimeout<T>(p: Promise<T>, ms: number): Promise<boolean> {
   return (await Promise.race([p, timeout])) === TIMEOUT;
 }
 
+// After aborting timed-out handlers, wait up to this long for their promises
+// to actually settle before tearing down the DB pool (I3). Bounded so a
+// handler that ignores its AbortSignal can't hang shutdown forever.
+const ABORT_DRAIN_MS = 5000;
+
 export class Worker {
   id!: string;
   private running = new Map<string, RunningJob>();
@@ -162,8 +167,20 @@ export class Worker {
       for (const r of this.running.values()) r.abort.abort();
       const ids = [...this.running.keys()];
       if (ids.length > 0) {
+        // Requeue FIRST: this clears locked_by, so any late failJob/completeJob
+        // from an aborted handler is fenced out (result discarded) rather than
+        // racing us.
         const { requeued, dead } = await requeueInflight(this.db, { workerId: this.id, jobIds: ids });
         this.log.info({ requeued, dead }, 'requeued in-flight jobs on shutdown timeout');
+      }
+      // I3: THEN wait (bounded) for the aborted handler promises to settle
+      // before we tear down the pool below — otherwise a handler's executor
+      // catch block (its now-fenced failJob) can be mid-query when db.destroy()
+      // rips the pool out, producing an unhandled rejection at shutdown.
+      const stillRunning = [...this.running.values()].map((r) => r.promise);
+      if (stillRunning.length > 0) {
+        const hung = await raceWithTimeout(Promise.allSettled(stillRunning), ABORT_DRAIN_MS);
+        if (hung) this.log.warn('some handlers did not settle after abort within the drain window; proceeding with shutdown');
       }
     }
 

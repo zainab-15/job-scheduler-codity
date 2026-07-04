@@ -22,7 +22,14 @@ export interface ScheduledJobRow {
 export type CreateRecurringResult =
   | { kind: 'created'; schedule: ScheduledJobRow }
   | { kind: 'queue_not_found' }
-  | { kind: 'invalid_cron'; message: string };
+  | { kind: 'invalid_cron'; message: string }
+  | { kind: 'invalid_timezone'; message: string };
+
+/** Minimal logger surface for the promoter's per-row skip/disable warnings.
+ *  Optional everywhere so tests and the shared package stay pino-free. */
+export interface PromoteLogger {
+  warn(obj: Record<string, unknown>, msg: string): void;
+}
 
 export interface CreateRecurringArgs {
   orgId: string;
@@ -42,7 +49,17 @@ export async function createRecurringJob(db: Kysely<Database>, args: CreateRecur
   if (!queue) return { kind: 'queue_not_found' };
 
   const timezone = args.timezone ?? 'UTC';
-  const firstRun = nextRunAt(args.cronExpression, new Date(), timezone);
+  // C4: an invalid IANA timezone makes cron-parser throw. Catch it here and
+  // return a clean 400 (invalid_timezone) instead of letting it fall through
+  // to the API's generic 500 handler — and, critically, refuse to PERSIST an
+  // unschedulable timezone that would later poison the promoter (C3's root
+  // cause at the front door).
+  let firstRun: Date;
+  try {
+    firstRun = nextRunAt(args.cronExpression, new Date(), timezone);
+  } catch (err) {
+    return { kind: 'invalid_timezone', message: `invalid timezone "${timezone}": ${err instanceof Error ? err.message : String(err)}` };
+  }
 
   const row = await sql<ScheduledJobRow>`
     INSERT INTO scheduled_jobs (queue_id, handler_name, cron_expression, timezone, payload, next_run_at)
@@ -83,7 +100,7 @@ export async function createRecurringJob(db: Kysely<Database>, args: CreateRecur
  *      but next_run_at ALWAYS advances, so a conflicting slot can't spin the
  *      same tick forever.
  */
-export async function promoteRecurringTx(trx: Transaction<Database>): Promise<number> {
+export async function promoteRecurringTx(trx: Transaction<Database>, log?: PromoteLogger): Promise<number> {
   const due = await sql<{
     id: string;
     queue_id: string;
@@ -101,6 +118,36 @@ export async function promoteRecurringTx(trx: Transaction<Database>): Promise<nu
 
   let promoted = 0;
   for (const s of due.rows) {
+    // C3: compute the NEXT fire time FIRST — this is the only per-row step that
+    // can throw a pure-JS error (a bad IANA tz that became invalid after a
+    // tzdata update, a cron-parser edge case). This is the actual poison
+    // vector the fix targets: it happens in JS, before any SQL for this row, so
+    // catching it here does NOT poison the surrounding Postgres transaction.
+    // On a throw, DISABLE the schedule so it stops being re-selected every tick
+    // and freezing the whole batch. Without this, one unparseable schedule
+    // rolls back the entire tick and re-throws forever, halting ALL cron
+    // promotion system-wide with only a generic error log.
+    // (We compute `next` before the INSERT rather than after — a harmless
+    // reorder; the dedupe_key still keys off the CURRENT next_run_at below.)
+    let next: Date;
+    try {
+      next = nextRunAt(s.cron_expression, new Date(), s.timezone);
+    } catch (err) {
+      await sql`UPDATE scheduled_jobs SET is_enabled = false, updated_at = now() WHERE id = ${s.id}`.execute(trx);
+      log?.warn(
+        { scheduleId: s.id, cron: s.cron_expression, timezone: s.timezone, err: err instanceof Error ? err.message : String(err) },
+        'disabled unschedulable recurring job (unparseable cron/timezone)',
+      );
+      continue;
+    }
+
+    // DB writes run directly in the outer trx (Kysely 0.27 has no
+    // savepoint/nested-transaction support). These statements can't throw a
+    // row-SPECIFIC error in practice: the INSERT is ON CONFLICT DO NOTHING
+    // (dedupe handled), retry_* come from resolveRetryContract (always valid),
+    // and every jobs CHECK constraint is satisfied by construction. A throw
+    // here would therefore be systemic (connection loss, PG down), which
+    // SHOULD abort the tick and retry next tick — not a per-row poison loop.
     const retry = await resolveRetryContract(trx, s.queue_id);
     const dedupeKey = `cron:${s.id}:${s.next_run_at.toISOString()}`;
 
@@ -118,7 +165,6 @@ export async function promoteRecurringTx(trx: Transaction<Database>): Promise<nu
       await sql`UPDATE queues SET stat_queued = stat_queued + 1, updated_at = now() WHERE id = ${s.queue_id}`.execute(trx);
     }
 
-    const next = nextRunAt(s.cron_expression, new Date(), s.timezone);
     const newJobId = inserted.rows[0]?.id ?? null;
     await sql`
       UPDATE scheduled_jobs
@@ -134,10 +180,10 @@ export async function promoteRecurringTx(trx: Transaction<Database>): Promise<nu
 }
 
 /** Public, leader-gated entrypoint — same pattern as promoteDueJobs/reclaimStuckJobs. */
-export async function promoteRecurring(db: Kysely<Database>): Promise<number> {
+export async function promoteRecurring(db: Kysely<Database>, log?: PromoteLogger): Promise<number> {
   return db.transaction().execute(async (trx) => {
     const got = await sql<{ ok: boolean }>`SELECT pg_try_advisory_xact_lock(2, 0) AS ok`.execute(trx);
     if (!got.rows[0]?.ok) return 0;
-    return promoteRecurringTx(trx);
+    return promoteRecurringTx(trx, log);
   });
 }

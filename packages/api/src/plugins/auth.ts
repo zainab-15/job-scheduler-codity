@@ -33,6 +33,25 @@ export async function verifyPassword(hash: string, password: string): Promise<bo
   }
 }
 
+// A valid argon2id hash of a throwaway string. Used ONLY to burn the same
+// argon2 cost on the login path when the email doesn't exist, so "no such
+// user" and "wrong password" take the same time (C5 — closes the timing
+// side-channel that would otherwise let an attacker enumerate valid emails).
+const DUMMY_ARGON2_HASH = '$argon2id$v=19$m=65536,t=3,p=4$8/H/PzSeG+/LckrNj7IGjA$q3+JNZGZpeVg+cSDK2ZupliP38LGZCr3v8spKOYrYv0';
+
+/**
+ * Constant-time-ish credential check: when `hash` is null (no such user), still
+ * runs a full argon2 verify against a dummy hash so the response time doesn't
+ * reveal whether the email exists. Always returns false for a null hash.
+ */
+export async function verifyCredential(hash: string | null, password: string): Promise<boolean> {
+  if (hash === null) {
+    await verifyPassword(DUMMY_ARGON2_HASH, password); // burn equal time, discard result
+    return false;
+  }
+  return verifyPassword(hash, password);
+}
+
 /**
  * Registers @fastify/jwt (a genuine third-party plugin — safe to
  * `fastify.register()`), then adds the `authenticate` preHandler at the

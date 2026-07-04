@@ -332,7 +332,10 @@ export async function registerJobRoutes(fastify: FastifyInstance): Promise<void>
       return;
     }
     if (result === 'not_retryable') {
-      reply.code(400).send(errorEnvelope('NOT_RETRYABLE', 'job is not in a retryable state (must be dead or retrying)', req.id));
+      // 409 (state conflict), matching ALREADY_RUNNING / HAS_PENDING_WORK /
+      // ORIGIN_DELETED — the resource's current state conflicts with the
+      // operation; it is not a malformed request (which would be 400).
+      reply.code(409).send(errorEnvelope('NOT_RETRYABLE', 'job is not in a retryable state (must be dead or retrying)', req.id));
       return;
     }
     const detail = await getJobDetail(fastify.db, { orgId: orgIdOf(req), jobId: req.params.jobId });
@@ -393,6 +396,14 @@ export async function registerJobRoutes(fastify: FastifyInstance): Promise<void>
         reply.code(400).send(
           errorEnvelope('INVALID_CRON', result.message, req.id, {
             example: '*/15 * * * * (every 15 minutes)',
+          }),
+        );
+        return;
+      }
+      if (result.kind === 'invalid_timezone') {
+        reply.code(400).send(
+          errorEnvelope('INVALID_TIMEZONE', result.message, req.id, {
+            example: 'America/New_York (an IANA timezone name)',
           }),
         );
         return;

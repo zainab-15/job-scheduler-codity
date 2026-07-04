@@ -1,6 +1,7 @@
 import { type Kysely, sql } from 'kysely';
 import type { Database, WorkerStatus } from '../db/types.js';
 import { moveToDeadTx } from './jobs.js';
+import type { PaginatedResult } from './projects.js';
 
 export interface RegisterWorkerArgs {
   hostname: string;
@@ -164,22 +165,40 @@ export interface WorkerRow {
   stopped_at: Date | null;
 }
 
-/** List workers with DERIVED liveness (never trust a stale `status` alone —
- *  a crashed worker's row may still say 'active' until markDeadWorkers runs). */
+export type WorkerWithLiveness = WorkerRow & { liveness: 'alive' | 'draining' | 'dead' };
+
+function withLiveness(w: WorkerRow): WorkerWithLiveness {
+  return {
+    ...w,
+    liveness: w.status === 'dead' || w.status === 'stopped' ? 'dead' : w.status === 'draining' ? 'draining' : 'alive',
+  };
+}
+
+/** List workers (paginated) with DERIVED liveness (never trust a stale
+ *  `status` alone — a crashed worker's row may still say 'active' until
+ *  markDeadWorkers runs). C6: workers are never deleted, so this MUST be
+ *  bounded or it grows unbounded with fleet restart history. */
 export async function listWorkers(
   db: Kysely<Database>,
-): Promise<Array<WorkerRow & { liveness: 'alive' | 'draining' | 'dead' }>> {
-  const rows = await sql<WorkerRow>`
-    SELECT id, hostname, pid, status, concurrency, last_heartbeat_at, started_at, stopped_at
+  args: { limit: number; offset: number },
+): Promise<PaginatedResult<WorkerWithLiveness>> {
+  const res = await sql<WorkerRow & { total: string }>`
+    SELECT id, hostname, pid, status, concurrency, last_heartbeat_at, started_at, stopped_at,
+           count(*) OVER()::int AS total
     FROM workers ORDER BY started_at DESC
+    LIMIT ${args.limit} OFFSET ${args.offset}
   `.execute(db);
-  return rows.rows.map((w) => ({
-    ...w,
-    liveness:
-      w.status === 'dead' || w.status === 'stopped'
-        ? 'dead'
-        : w.status === 'draining'
-          ? 'draining'
-          : 'alive',
-  }));
+  const total = res.rows.length > 0 ? Number(res.rows[0]!.total) : 0;
+  return { data: res.rows.map(withLiveness), total, limit: args.limit, offset: args.offset };
+}
+
+/** Single-row point lookup by id (C6): a primary-key SELECT, not a full-table
+ *  fetch + in-memory Array.find(). */
+export async function getWorkerById(db: Kysely<Database>, workerId: string): Promise<WorkerWithLiveness | undefined> {
+  const res = await sql<WorkerRow>`
+    SELECT id, hostname, pid, status, concurrency, last_heartbeat_at, started_at, stopped_at
+    FROM workers WHERE id = ${workerId}
+  `.execute(db);
+  const row = res.rows[0];
+  return row ? withLiveness(row) : undefined;
 }

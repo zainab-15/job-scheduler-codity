@@ -50,6 +50,21 @@ describe('createRecurringJob', () => {
     if (result.kind !== 'invalid_cron') return;
     expect(result.message.length).toBeGreaterThan(0);
   });
+
+  it('C4: rejects an invalid IANA timezone with invalid_timezone (not a thrown 500)', async () => {
+    const { orgId, queueId } = await seedQueue(db);
+    const result = await createRecurringJob(db, {
+      orgId,
+      queueId,
+      handlerName: 'sleep',
+      payload: {},
+      cronExpression: '*/5 * * * *',
+      timezone: 'Not/AZone',
+    });
+    expect(result.kind).toBe('invalid_timezone');
+    if (result.kind !== 'invalid_timezone') return;
+    expect(result.message).toContain('Not/AZone');
+  });
 });
 
 describe('promoteRecurringTx / promoteRecurring (Part 2C)', () => {
@@ -161,5 +176,39 @@ describe('promoteRecurringTx / promoteRecurring (Part 2C)', () => {
     // timezone-dropping bug would produce.
     const hourUtc = scheduleAfter.next_run_at.getUTCHours();
     expect([12, 13]).toContain(hourUtc);
+  });
+
+  it('C3: one poison schedule (unparseable tz) is disabled and does NOT block a healthy schedule in the same tick', async () => {
+    const { orgId, queueId } = await seedQueue(db);
+
+    // A healthy schedule, created + forced due normally.
+    const healthy = await createRecurringJob(db, { orgId, queueId, handlerName: 'sleep', payload: { ms: 1 }, cronExpression: '* * * * *' });
+    if (healthy.kind !== 'created') throw new Error('setup failed');
+    await sql`UPDATE scheduled_jobs SET next_run_at = now() - interval '1 second' WHERE id = ${healthy.schedule.id}`.execute(db);
+
+    // A poison schedule: inject a bad timezone DIRECTLY (bypassing
+    // createRecurringJob's C4 validation) to simulate the real scenario — a
+    // schedule created when its tz was valid, then a tzdata update makes
+    // nextRunAt() throw for it. The insert also skips the CHECK-free columns
+    // cleanly since scheduled_jobs has no tz format constraint.
+    const poison = await sql<{ id: string }>`
+      INSERT INTO scheduled_jobs (queue_id, handler_name, cron_expression, timezone, payload, next_run_at, is_enabled)
+      VALUES (${queueId}, 'sleep', '* * * * *', 'Not/AZone', '{}'::jsonb, now() - interval '1 second', true)
+      RETURNING id
+    `.execute(db);
+    const poisonId = poison.rows[0]!.id;
+
+    // Must NOT throw, and must still promote the healthy schedule.
+    const promoted = await promoteRecurring(db);
+    expect(promoted).toBe(1); // only the healthy one
+
+    const poisonRow = await db.selectFrom('scheduled_jobs').selectAll().where('id', '=', poisonId).executeTakeFirstOrThrow();
+    expect(poisonRow.is_enabled).toBe(false); // disabled so it stops re-poisoning every tick
+
+    const healthyJobs = await db.selectFrom('jobs').selectAll().where('recurring_job_id', '=', healthy.schedule.id).execute();
+    expect(healthyJobs).toHaveLength(1); // healthy schedule fired despite the poison neighbor
+
+    // The disabled poison row is no longer due -> a second tick is a clean no-op.
+    expect(await promoteRecurring(db)).toBe(0);
   });
 });

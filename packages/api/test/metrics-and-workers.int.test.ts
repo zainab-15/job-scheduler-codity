@@ -77,6 +77,8 @@ describe('workers', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json().data).toHaveLength(1);
     expect(res.json().data[0]).toMatchObject({ hostname: 'w1', liveness: 'alive' });
+    // C6: workers list now uses the same {data, pagination} envelope as every other list endpoint
+    expect(res.json().pagination).toEqual({ total: 1, limit: 20, offset: 0, has_more: false });
   });
 
   it('404s on an unknown worker id', async () => {

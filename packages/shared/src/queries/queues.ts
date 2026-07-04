@@ -56,6 +56,26 @@ export interface QueueDetail extends QueueRow {
   retry_policy: RetryPolicyDetail | null;
 }
 
+/**
+ * C1 (IDOR fix): a client-supplied retry_policy_id must belong to the SAME
+ * project as the queue it's being attached to. Without this check, an org
+ * member could attach ANY org's retry_policies row to their own queue (the
+ * FK only enforces existence, not ownership), and getQueueDetail would then
+ * echo that other org's policy config back to them — a cross-tenant leak that
+ * violates the org-scoping invariant every other path upholds. Same-project
+ * (not merely same-org) is the tightest correct scope: retry policies are
+ * defined per project and consumed by queues within that project.
+ */
+async function retryPolicyBelongsToProject(db: Kysely<Database>, retryPolicyId: string, projectId: string): Promise<boolean> {
+  const row = await db
+    .selectFrom('retry_policies')
+    .select('id')
+    .where('id', '=', retryPolicyId)
+    .where('project_id', '=', projectId)
+    .executeTakeFirst();
+  return !!row;
+}
+
 async function createRetryPolicyForProject(
   db: Kysely<Database>,
   projectId: string,
@@ -89,7 +109,7 @@ export async function createQueue(
     retryPolicyId?: string;
     retryPolicy?: RetryPolicyInput;
   },
-): Promise<QueueRow | 'project_not_found'> {
+): Promise<QueueRow | 'project_not_found' | 'policy_not_found'> {
   const project = await db
     .selectFrom('projects')
     .select('id')
@@ -99,7 +119,10 @@ export async function createQueue(
   if (!project) return 'project_not_found';
 
   let retryPolicyId = args.retryPolicyId ?? null;
-  if (!retryPolicyId && args.retryPolicy) {
+  if (retryPolicyId) {
+    // C1: reject a policy that isn't in this queue's own project (cross-org IDOR)
+    if (!(await retryPolicyBelongsToProject(db, retryPolicyId, args.projectId))) return 'policy_not_found';
+  } else if (args.retryPolicy) {
     retryPolicyId = await createRetryPolicyForProject(db, args.projectId, `${args.name}-policy`, args.retryPolicy);
   }
 
@@ -157,40 +180,39 @@ export async function getQueueDetail(db: Kysely<Database>, args: { orgId: string
   return { ...row, retry_policy: retryPolicy };
 }
 
+export type UpdateQueueResult = QueueRow | 'not_found' | 'policy_not_found';
+
 /** Update config. `retryPolicyId` reassigns to an EXISTING policy (no inline
  *  creation here — that's create-time only, keeping this endpoint simple). */
 export async function updateQueue(
   db: Kysely<Database>,
   args: { orgId: string; queueId: string; priority?: number; concurrencyLimit?: number; retryPolicyId?: string | null },
-): Promise<QueueRow | undefined> {
+): Promise<UpdateQueueResult> {
+  // Fetch the org-scoped queue first so we know its project_id (needed to
+  // validate a reassigned policy against C1) and so a cross-org queue id is a
+  // clean 'not_found' rather than a silently-skipped update.
+  const existing = await sql<QueueRow>`
+    SELECT q.* FROM queues q JOIN projects p ON p.id = q.project_id
+    WHERE q.id = ${args.queueId} AND p.org_id = ${args.orgId}
+  `.execute(db);
+  const queue = existing.rows[0];
+  if (!queue) return 'not_found';
+
   const patch: Record<string, unknown> = {};
   if (args.priority !== undefined) patch.priority = args.priority;
   if (args.concurrencyLimit !== undefined) patch.concurrency_limit = args.concurrencyLimit;
-  if (args.retryPolicyId !== undefined) patch.retry_policy_id = args.retryPolicyId;
-
-  if (Object.keys(patch).length === 0) {
-    const res = await sql<QueueRow>`
-      SELECT q.* FROM queues q JOIN projects p ON p.id = q.project_id
-      WHERE q.id = ${args.queueId} AND p.org_id = ${args.orgId}
-    `.execute(db);
-    return res.rows[0];
+  if (args.retryPolicyId !== undefined) {
+    // C1: a non-null reassigned policy must belong to this queue's own project.
+    if (args.retryPolicyId !== null && !(await retryPolicyBelongsToProject(db, args.retryPolicyId, queue.project_id))) {
+      return 'policy_not_found';
+    }
+    patch.retry_policy_id = args.retryPolicyId;
   }
 
-  return db
-    .updateTable('queues')
-    .set(patch)
-    .where('id', '=', args.queueId)
-    .where((eb) =>
-      eb.exists(
-        eb
-          .selectFrom('projects')
-          .select('id')
-          .whereRef('projects.id', '=', 'queues.project_id')
-          .where('projects.org_id', '=', args.orgId),
-      ),
-    )
-    .returningAll()
-    .executeTakeFirst();
+  if (Object.keys(patch).length === 0) return queue; // empty patch -> echo current row
+
+  const updated = await db.updateTable('queues').set(patch).where('id', '=', args.queueId).returningAll().executeTakeFirst();
+  return updated ?? 'not_found';
 }
 
 async function setQueuePaused(db: Kysely<Database>, args: { orgId: string; queueId: string }, paused: boolean): Promise<QueueRow | undefined> {
@@ -219,14 +241,17 @@ export async function resumeQueue(db: Kysely<Database>, args: { orgId: string; q
   return setQueuePaused(db, args, false);
 }
 
-/** Guarded, atomic delete — same DELETE...WHERE NOT EXISTS(running) pattern
- *  as deleteProject (R11): no check-then-delete race. */
+/** Guarded, atomic delete — same DELETE...WHERE NOT EXISTS pattern as
+ *  deleteProject (R11): no check-then-delete race. C2: blocks on any
+ *  non-terminal job OR enabled schedule, not just running jobs, so deleting a
+ *  queue can't silently cascade away pending work + active cron templates. */
 export async function deleteQueue(db: Kysely<Database>, args: { orgId: string; queueId: string }): Promise<DeleteResult> {
   const del = await sql<{ id: string }>`
     DELETE FROM queues q
     USING projects p
     WHERE q.id = ${args.queueId} AND q.project_id = p.id AND p.org_id = ${args.orgId}
-      AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.queue_id = q.id AND j.status = 'running')
+      AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.queue_id = q.id AND j.status IN ('running','queued','scheduled','retrying'))
+      AND NOT EXISTS (SELECT 1 FROM scheduled_jobs s WHERE s.queue_id = q.id AND s.is_enabled = true)
     RETURNING q.id
   `.execute(db);
   if (del.rows.length > 0) return 'deleted';
@@ -235,13 +260,13 @@ export async function deleteQueue(db: Kysely<Database>, args: { orgId: string; q
     SELECT q.id FROM queues q JOIN projects p ON p.id = q.project_id
     WHERE q.id = ${args.queueId} AND p.org_id = ${args.orgId}
   `.execute(db);
-  return exists.rows.length > 0 ? 'has_running_jobs' : 'not_found';
+  return exists.rows.length > 0 ? 'has_pending_work' : 'not_found';
 }
 
 export interface QueueStatsResult {
   queue_id: string;
   is_paused: boolean;
-  counts: { queued: number; scheduled: number; running: number; retrying: number; completed: number; dead: number };
+  counts: { queued: number; scheduled: number; running: number; retrying: number; completed: number; dead: number; cancelled: number };
   window_hours: number;
   completed_in_window: number;
   failed_in_window: number;
@@ -262,11 +287,13 @@ export async function getQueueStats(
   if (!q) return undefined;
 
   // stat_* already tracks queued/running/completed/dead transactionally (§3);
-  // 'scheduled'/'retrying' are read live since they're not separately counted there
-  const live = await sql<{ scheduled: string; retrying: string }>`
+  // 'scheduled'/'retrying'/'cancelled' are read live since they're not separately
+  // counted there ('cancelled' added in migration 002 — R7)
+  const live = await sql<{ scheduled: string; retrying: string; cancelled: string }>`
     SELECT
       count(*) FILTER (WHERE status = 'scheduled')::int AS scheduled,
-      count(*) FILTER (WHERE status = 'retrying')::int AS retrying
+      count(*) FILTER (WHERE status = 'retrying')::int AS retrying,
+      count(*) FILTER (WHERE status = 'cancelled')::int AS cancelled
     FROM jobs WHERE queue_id = ${args.queueId}
   `.execute(db);
 
@@ -294,6 +321,7 @@ export async function getQueueStats(
       retrying: Number(l.retrying),
       completed: q.stat_completed,
       dead: q.stat_dead,
+      cancelled: Number(l.cancelled),
     },
     window_hours: args.windowHours,
     completed_in_window: Number(w.completed),

@@ -41,7 +41,7 @@ export class MaintenanceLoop {
       const reclaimed = await reclaimStuckJobs(this.db);
       const deadWorkers = await markDeadWorkers(this.db, this.staleWorkerSeconds);
       const promoted = await promoteDueJobs(this.db);
-      const promotedRecurring = await promoteRecurring(this.db);
+      const promotedRecurring = await promoteRecurring(this.db, this.log);
       if (reclaimed || deadWorkers || promoted || promotedRecurring) {
         this.log.info({ reclaimed, deadWorkers, promoted, promotedRecurring }, 'maintenance tick');
       }

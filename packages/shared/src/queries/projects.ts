@@ -98,13 +98,20 @@ export async function updateProject(
     .executeTakeFirst();
 }
 
-export type DeleteResult = 'deleted' | 'not_found' | 'has_running_jobs';
+export type DeleteResult = 'deleted' | 'not_found' | 'has_pending_work';
 
 /**
- * Single-statement guarded delete (R11 fix): the running-jobs check and the
- * delete happen in ONE atomic DELETE ... WHERE NOT EXISTS(...), so a job
- * cannot start running in the gap between "check" and "delete" the way a
- * separate SELECT-then-DELETE would allow.
+ * Single-statement guarded delete (R11 fix): the pending-work check and the
+ * delete happen in ONE atomic DELETE ... WHERE NOT EXISTS(...), so work can't
+ * appear in the gap between "check" and "delete" the way a separate
+ * SELECT-then-DELETE would allow.
+ *
+ * C2: the guard blocks on ANY non-terminal job (running/queued/scheduled/
+ * retrying) OR any enabled recurring schedule — not just running jobs.
+ * Deleting a project cascades (ON DELETE CASCADE) through queues → jobs →
+ * scheduled_jobs, so a running-only guard would silently and irrecoverably
+ * destroy thousands of pending jobs and active cron templates. Terminal jobs
+ * (completed/dead/cancelled) are historical and DO cascade away, as intended.
  */
 export async function deleteProject(db: Kysely<Database>, args: { orgId: string; projectId: string }): Promise<DeleteResult> {
   const del = await sql<{ id: string }>`
@@ -112,13 +119,17 @@ export async function deleteProject(db: Kysely<Database>, args: { orgId: string;
     WHERE p.id = ${args.projectId} AND p.org_id = ${args.orgId}
       AND NOT EXISTS (
         SELECT 1 FROM jobs j JOIN queues q ON q.id = j.queue_id
-        WHERE q.project_id = p.id AND j.status = 'running'
+        WHERE q.project_id = p.id AND j.status IN ('running','queued','scheduled','retrying')
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM scheduled_jobs s JOIN queues q ON q.id = s.queue_id
+        WHERE q.project_id = p.id AND s.is_enabled = true
       )
     RETURNING p.id
   `.execute(db);
   if (del.rows.length > 0) return 'deleted';
 
-  // 0 rows: either not found, or blocked by running jobs — this read-only
+  // 0 rows: either not found, or blocked by pending work — this read-only
   // disambiguation does NOT reintroduce the race; the atomic decision above
   // already happened, this only picks which error code to report.
   const exists = await db
@@ -127,5 +138,5 @@ export async function deleteProject(db: Kysely<Database>, args: { orgId: string;
     .where('id', '=', args.projectId)
     .where('org_id', '=', args.orgId)
     .executeTakeFirst();
-  return exists ? 'has_running_jobs' : 'not_found';
+  return exists ? 'has_pending_work' : 'not_found';
 }

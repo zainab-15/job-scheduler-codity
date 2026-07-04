@@ -100,6 +100,10 @@ export async function registerQueueRoutes(fastify: FastifyInstance): Promise<voi
         reply.code(404).send(errorEnvelope('NOT_FOUND', 'project not found', req.id));
         return;
       }
+      if (result === 'policy_not_found') {
+        reply.code(404).send(errorEnvelope('NOT_FOUND', 'retry policy not found in this project', req.id));
+        return;
+      }
       reply.code(201).send(result);
     },
   );
@@ -140,8 +144,12 @@ export async function registerQueueRoutes(fastify: FastifyInstance): Promise<voi
         concurrencyLimit: req.body.concurrency_limit,
         retryPolicyId: req.body.retry_policy_id,
       });
-      if (!queue) {
+      if (queue === 'not_found') {
         reply.code(404).send(errorEnvelope('NOT_FOUND', 'queue not found', req.id));
+        return;
+      }
+      if (queue === 'policy_not_found') {
+        reply.code(404).send(errorEnvelope('NOT_FOUND', 'retry policy not found in this project', req.id));
         return;
       }
       reply.send(queue);
@@ -154,8 +162,16 @@ export async function registerQueueRoutes(fastify: FastifyInstance): Promise<voi
       reply.code(404).send(errorEnvelope('NOT_FOUND', 'queue not found', req.id));
       return;
     }
-    if (result === 'has_running_jobs') {
-      reply.code(409).send(errorEnvelope('HAS_RUNNING_JOBS', 'cannot delete a queue with running jobs', req.id));
+    if (result === 'has_pending_work') {
+      reply
+        .code(409)
+        .send(
+          errorEnvelope(
+            'HAS_PENDING_WORK',
+            'cannot delete a queue with pending jobs (running/queued/scheduled/retrying) or an active recurring schedule',
+            req.id,
+          ),
+        );
       return;
     }
     reply.code(204).send();

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { findUserByEmail, getOrg, registerUserOrg } from '@scheduler/shared';
-import { hashPassword, orgIdOf, verifyPassword } from '../plugins/auth.js';
+import { hashPassword, orgIdOf, verifyCredential } from '../plugins/auth.js';
 import { errorEnvelope } from '../plugins/error-handler.js';
 
 export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void> {
@@ -48,7 +48,11 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
     async (req, reply) => {
       const { email, password } = req.body;
       const user = await findUserByEmail(fastify.db, email);
-      if (!user || !(await verifyPassword(user.password_hash, password))) {
+      // verifyCredential runs a full argon2 verify even when the user is
+      // missing (against a dummy hash), so a bad email and a bad password
+      // cost the same time — no user-enumeration timing oracle (C5).
+      const ok = await verifyCredential(user?.password_hash ?? null, password);
+      if (!user || !ok) {
         reply.code(401).send(errorEnvelope('INVALID_CREDENTIALS', 'invalid email or password', req.id));
         return;
       }

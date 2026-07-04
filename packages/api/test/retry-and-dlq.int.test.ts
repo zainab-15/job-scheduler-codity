@@ -96,7 +96,7 @@ describe('retry (D2-Eng-4 regression): retry must not collide with UNIQUE(job_id
       payload: { type: 'immediate', handler_name: 'sleep', payload: {} },
     });
     const res = await server.inject({ method: 'POST', url: `/api/v1/jobs/${created.json().id}/retry`, headers });
-    expect(res.statusCode).toBe(400);
+    expect(res.statusCode).toBe(409); // state conflict, consistent with cancel/delete/requeue
     expect(res.json().error.code).toBe('NOT_RETRYABLE');
   });
 });
@@ -209,7 +209,7 @@ describe('cancel (R7)', () => {
 
     // A cancelled job is a real terminal state, not retryable back to life.
     const retry = await server.inject({ method: 'POST', url: `/api/v1/jobs/${jobId}/retry`, headers });
-    expect(retry.statusCode).toBe(400);
+    expect(retry.statusCode).toBe(409);
 
     const dlq = await server.inject({ method: 'GET', url: `/api/v1/queues/${queueId}/dead-letter`, headers });
     expect(dlq.json().data).toHaveLength(0); // cancel never pollutes the DLQ

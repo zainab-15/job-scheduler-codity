@@ -45,12 +45,25 @@ async function upsertQueue(
   const existing = await sql<{ id: string }>`SELECT id FROM queues WHERE project_id = ${projectId} AND name = ${name}`.execute(db);
   if (existing.rows[0]) return existing.rows[0].id;
   const created = await createQueue(db, { orgId, projectId, name, concurrencyLimit, priority });
-  if (created === 'project_not_found') throw new Error(`seed: project ${projectId} vanished between upsert steps`);
+  if (created === 'project_not_found' || created === 'policy_not_found') {
+    throw new Error(`seed: createQueue failed (${created}) for project ${projectId}`);
+  }
   return created.id;
 }
 
 async function main(): Promise<void> {
   const env = loadEnv();
+
+  // Refuse to run against a production DB: this script provisions a
+  // fixed, publicly-known admin credential (admin@demo.test / demo12345678).
+  // If `npm run seed` is ever wired into a deploy hook or pointed at a prod
+  // DATABASE_URL by mistake, that would be a full-access backdoor.
+  if (env.NODE_ENV === 'production') {
+    // eslint-disable-next-line no-console
+    console.error('Refusing to seed demo data in NODE_ENV=production (this creates a known-password admin account).');
+    process.exit(1);
+  }
+
   const db = createDb(env.DATABASE_URL, env.PG_POOL_MAX);
 
   try {

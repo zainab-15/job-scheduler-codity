@@ -7,7 +7,23 @@ const { Pool } = pg;
 pg.types.setTypeParser(20, (v) => (v === null ? null : Number(v)));
 
 export function createPool(connectionString: string, max = 10): pg.Pool {
-  return new Pool({ connectionString, max });
+  const pool = new Pool({
+    connectionString,
+    max,
+    // A single stuck query must not pin a pooled connection forever and
+    // starve every other request sharing this pool (default max 10).
+    connectionTimeoutMillis: 10_000,
+    statement_timeout: 30_000,
+  });
+  // node-postgres emits 'error' on an IDLE client whose backend connection
+  // dies (network blip, PG restart). With no listener this is an unhandled
+  // exception that crashes the whole process — attach a logging no-op so the
+  // pool just discards the dead client and carries on.
+  pool.on('error', (err) => {
+    // eslint-disable-next-line no-console
+    console.error('[pg pool] idle client error (client discarded):', err.message);
+  });
+  return pool;
 }
 
 export type { Pool } from 'pg';
