@@ -122,3 +122,4 @@ Honest boundaries, kept deliberately:
 - **No auth refresh tokens.** Login returns a single JWT; when it expires you log in again.
 - **No rate limiting** on the API.
 - **At-least-once delivery**, documented — not exactly-once *delivery*. The lease/fence machinery guarantees a job is never *committed as completed* twice, and the reference handlers are safe to re-run; a handler that performs external side effects should be written to tolerate re-execution.
+# job-scheduler-codity
