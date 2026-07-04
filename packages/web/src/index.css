@@ -9,11 +9,38 @@
     height: 100%;
   }
   body {
-    @apply bg-slate-100 text-slate-900 antialiased;
+    /* Light warm-beige canvas — kept a step below white so the cards' soft
+       shadow reads as a clear lift, not a flat wash. */
+    background-color: #faf6ef;
+    @apply text-slate-800 antialiased;
+    font-family: theme('fontFamily.sans');
+    letter-spacing: -0.011em;
+    text-rendering: optimizeLegibility;
+  }
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.021em;
   }
   /* R22: a visible focus ring everywhere, never rely on the browser default
-     being suppressed. */
+     being suppressed. Blush-pink to match the accent. */
   :focus-visible {
-    @apply outline-none ring-2 ring-indigo-500 ring-offset-1;
+    @apply outline-none ring-2 ring-indigo-500/70 ring-offset-2 ring-offset-[#faf6ef];
+  }
+  ::selection {
+    background-color: #fce7ee;
+    color: #8c3049;
+  }
+}
+
+@layer utilities {
+  /* Subtle dotted texture for the login brand panel — abstract, not decorative
+     clip-art. Kept faint so it reads as paper grain, not a pattern. */
+  .bg-dot-grid {
+    background-image: radial-gradient(circle at center, rgb(133 124 109 / 0.18) 1px, transparent 1.4px);
+    background-size: 22px 22px;
+  }
+  .tnum {
+    font-variant-numeric: tabular-nums;
   }
 }

@@ -3,7 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import { useCreateJob, useCreateSchedule, useQueue, useQueueStats, type CreateJobBody } from '../api/hooks';
 import { QueryState } from '../components/QueryState';
 import { SaturationBar } from '../components/SaturationBar';
-import { Button, Card, Field, PageHeader, inputClass } from '../components/ui';
+import { Button, Card, Field, PageHeader, SectionLabel, inputClass } from '../components/ui';
+import { ArrowRightIcon, ChevronLeftIcon } from '../components/icons';
 import { JOB_STATUS_STYLE } from '../lib/status';
 import { formatDuration } from '../lib/format';
 import type { QueueDetail, QueueStatsResult } from '../api/types';
@@ -65,8 +66,8 @@ function CreateJobForm({ queueId }: { queueId: string }) {
 
   return (
     <Card>
-      <h2 className="mb-3 text-sm font-medium text-slate-700">Enqueue a job</h2>
-      <form onSubmit={submit} className="space-y-3">
+      <SectionLabel className="mb-4">Enqueue a job</SectionLabel>
+      <form onSubmit={submit} className="space-y-3.5">
         <div className="grid grid-cols-2 gap-3">
           <Field label="Type">
             <select value={type} onChange={(e) => setType(e.target.value as CreateJobBody['type'])} className={inputClass}>
@@ -107,11 +108,13 @@ function CreateJobForm({ queueId }: { queueId: string }) {
         <Field label="Payload (JSON)">
           <textarea value={payload} onChange={(e) => setPayload(e.target.value)} rows={3} className={`${inputClass} font-mono`} />
         </Field>
-        {payloadError && <div className="text-xs text-red-600">{payloadError}</div>}
+        {payloadError && <div className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600">{payloadError}</div>}
         <Button type="submit" variant="primary" disabled={create.isPending}>
           Enqueue
         </Button>
-        <p className="text-xs text-slate-400">Try handler <span className="font-mono">always_fail</span> to watch retry → dead-letter.</p>
+        <p className="text-xs text-slate-400">
+          Try handler <span className="rounded bg-slate-100 px-1 py-0.5 font-mono text-slate-600">always_fail</span> to watch retry → dead-letter.
+        </p>
       </form>
     </Card>
   );
@@ -125,13 +128,13 @@ function CreateScheduleForm({ queueId }: { queueId: string }) {
 
   return (
     <Card>
-      <h2 className="mb-3 text-sm font-medium text-slate-700">New recurring schedule</h2>
+      <SectionLabel className="mb-4">New recurring schedule</SectionLabel>
       <form
         onSubmit={(e) => {
           e.preventDefault();
           create.mutate({ handler_name: handler, cron, timezone: timezone || undefined });
         }}
-        className="space-y-3"
+        className="space-y-3.5"
       >
         <div className="grid grid-cols-2 gap-3">
           <Field label="Handler">
@@ -147,7 +150,9 @@ function CreateScheduleForm({ queueId }: { queueId: string }) {
         <Button type="submit" variant="primary" disabled={create.isPending}>
           Create schedule
         </Button>
-        <p className="text-xs text-slate-400">e.g. <span className="font-mono">*/15 * * * *</span> = every 15 minutes.</p>
+        <p className="text-xs text-slate-400">
+          e.g. <span className="rounded bg-slate-100 px-1 py-0.5 font-mono text-slate-600">*/15 * * * *</span> = every 15 minutes.
+        </p>
       </form>
     </Card>
   );
@@ -158,28 +163,28 @@ function StatsCard({ stats }: { stats: QueueStatsResult }) {
   const entries = Object.entries(counts) as Array<[keyof typeof counts, number]>;
   return (
     <Card>
-      <h2 className="mb-3 text-sm font-medium text-slate-700">Stats (last {stats.window_hours}h)</h2>
+      <SectionLabel className="mb-4">Stats · last {stats.window_hours}h</SectionLabel>
       <div className="grid grid-cols-3 gap-2 text-center">
         {entries.map(([status, n]) => (
-          <div key={status} className="rounded border border-slate-200 py-1.5">
-            <div className="tabular-nums text-lg font-semibold" style={{ color: JOB_STATUS_STYLE[status as keyof typeof JOB_STATUS_STYLE]?.hex }}>
+          <div key={status} className="rounded-xl border border-slate-200/80 bg-slate-50/60 py-2">
+            <div className="tnum text-lg font-bold" style={{ color: JOB_STATUS_STYLE[status as keyof typeof JOB_STATUS_STYLE]?.hex }}>
               {n}
             </div>
-            <div className="text-xs capitalize text-slate-500">{status}</div>
+            <div className="text-[0.7rem] capitalize text-slate-500">{status}</div>
           </div>
         ))}
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs text-slate-600">
+      <div className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-100 pt-4 text-center text-xs text-slate-600">
         <div>
-          <div className="font-semibold text-emerald-600">{stats.completed_in_window}</div>
+          <div className="text-base font-bold text-emerald-600">{stats.completed_in_window}</div>
           completed
         </div>
         <div>
-          <div className="font-semibold text-red-600">{stats.failed_in_window}</div>
+          <div className="text-base font-bold text-red-600">{stats.failed_in_window}</div>
           failed
         </div>
         <div>
-          <div className="font-semibold">{formatDuration(stats.avg_duration_ms)}</div>
+          <div className="text-base font-bold text-slate-800">{formatDuration(stats.avg_duration_ms)}</div>
           avg duration
         </div>
       </div>
@@ -190,26 +195,26 @@ function StatsCard({ stats }: { stats: QueueStatsResult }) {
 function ConfigCard({ q }: { q: QueueDetail }) {
   return (
     <Card>
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-medium text-slate-700">Configuration</h2>
-        {q.is_paused && <span className="rounded bg-amber-500 px-1.5 py-0.5 text-xs font-semibold text-white">PAUSED</span>}
+      <div className="mb-4 flex items-center justify-between">
+        <SectionLabel>Configuration</SectionLabel>
+        {q.is_paused && <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-white">Paused</span>}
       </div>
-      <dl className="space-y-2 text-sm">
-        <div className="flex justify-between">
+      <dl className="space-y-3 text-sm">
+        <div className="flex items-center justify-between gap-3">
           <dt className="text-slate-500">Concurrency</dt>
           <dd>
             <SaturationBar running={q.stat_running} limit={q.concurrency_limit} />
           </dd>
         </div>
-        <div className="flex justify-between">
+        <div className="flex items-center justify-between gap-3">
           <dt className="text-slate-500">Priority</dt>
-          <dd className="tabular-nums">{q.priority}</dd>
+          <dd className="tnum font-medium text-slate-800">{q.priority}</dd>
         </div>
-        <div className="flex justify-between">
-          <dt className="text-slate-500">Retry policy</dt>
+        <div className="flex items-start justify-between gap-3">
+          <dt className="shrink-0 text-slate-500">Retry policy</dt>
           <dd className="text-right">
             {q.retry_policy ? (
-              <span className="font-mono text-xs">
+              <span className="font-mono text-xs text-slate-600">
                 {q.retry_policy.strategy}, base {q.retry_policy.base_delay_ms}ms ×{Number(q.retry_policy.backoff_factor)}, max {q.retry_policy.max_attempts} attempts
               </span>
             ) : (
@@ -233,15 +238,15 @@ export function QueueDetailPage() {
         title={queue.data?.name ?? 'Queue'}
         actions={
           queue.data && (
-            <div className="flex gap-3 text-sm">
-              <Link to={`/jobs?queue=${queueId}`} className="text-indigo-600 hover:underline">
-                Jobs →
+            <div className="flex items-center gap-4 text-sm">
+              <Link to={`/jobs?queue=${queueId}`} className="inline-flex items-center gap-1 font-medium text-indigo-700 hover:text-indigo-800">
+                Jobs <ArrowRightIcon width={14} height={14} />
               </Link>
-              <Link to={`/dead-letter?project=${queue.data.project_id}`} className="text-indigo-600 hover:underline">
-                Dead-letter →
+              <Link to={`/dead-letter?project=${queue.data.project_id}`} className="inline-flex items-center gap-1 font-medium text-indigo-700 hover:text-indigo-800">
+                Dead-letter <ArrowRightIcon width={14} height={14} />
               </Link>
-              <Link to={`/projects/${queue.data.project_id}`} className="text-slate-500 hover:text-slate-800">
-                ← Queues
+              <Link to={`/projects/${queue.data.project_id}`} className="inline-flex items-center gap-1 font-medium text-slate-500 hover:text-slate-800">
+                <ChevronLeftIcon width={15} height={15} /> Queues
               </Link>
             </div>
           )
@@ -249,14 +254,14 @@ export function QueueDetailPage() {
       />
       <QueryState query={queue}>
         {(q) => (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <div className="space-y-5">
               <ConfigCard q={q} />
               <QueryState query={stats} skeletonRows={2}>
                 {(s) => <StatsCard stats={s} />}
               </QueryState>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-5">
               {queueId && <CreateJobForm queueId={queueId} />}
               {queueId && <CreateScheduleForm queueId={queueId} />}
             </div>

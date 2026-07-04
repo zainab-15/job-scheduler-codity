@@ -11,26 +11,29 @@ export interface StatusStyle {
   hex: string;
 }
 
+// Pill classes stay on the (now softened) Tailwind status scales; the `hex`
+// values drive charts, donut slices, saturation bars, and timeline dots — all
+// tuned to soft, pastel tones so nothing reads as vivid against the warm theme.
 export const JOB_STATUS_STYLE: Record<JobStatus, StatusStyle> = {
-  queued: { label: 'Queued', pill: 'bg-slate-100 text-slate-700 ring-slate-300', hex: '#64748b' },
-  scheduled: { label: 'Scheduled', pill: 'bg-violet-100 text-violet-700 ring-violet-300', hex: '#8b5cf6' },
-  running: { label: 'Running', pill: 'bg-blue-100 text-blue-700 ring-blue-300', hex: '#3b82f6' },
-  retrying: { label: 'Retrying', pill: 'bg-amber-100 text-amber-800 ring-amber-300', hex: '#f59e0b' },
-  completed: { label: 'Completed', pill: 'bg-emerald-100 text-emerald-700 ring-emerald-300', hex: '#10b981' },
-  dead: { label: 'Dead', pill: 'bg-red-100 text-red-700 ring-red-300', hex: '#ef4444' },
-  cancelled: { label: 'Cancelled', pill: 'bg-slate-200 text-slate-600 ring-slate-400', hex: '#94a3b8' },
+  queued: { label: 'Queued', pill: 'bg-slate-100 text-slate-700 ring-slate-300', hex: '#A69B88' },
+  scheduled: { label: 'Scheduled', pill: 'bg-violet-100 text-violet-700 ring-violet-300', hex: '#A98FE0' },
+  running: { label: 'Running', pill: 'bg-blue-100 text-blue-700 ring-blue-300', hex: '#6E93DE' },
+  retrying: { label: 'Retrying', pill: 'bg-amber-100 text-amber-800 ring-amber-300', hex: '#E0A44E' },
+  completed: { label: 'Completed', pill: 'bg-emerald-100 text-emerald-700 ring-emerald-300', hex: '#4EA07E' },
+  dead: { label: 'Dead', pill: 'bg-red-100 text-red-700 ring-red-300', hex: '#D26B66' },
+  cancelled: { label: 'Cancelled', pill: 'bg-slate-200 text-slate-600 ring-slate-400', hex: '#B0A593' },
 };
 
 export const LIVENESS_STYLE: Record<Liveness, StatusStyle> = {
-  alive: { label: 'Alive', pill: 'bg-emerald-100 text-emerald-700 ring-emerald-300', hex: '#10b981' },
-  draining: { label: 'Draining', pill: 'bg-amber-100 text-amber-800 ring-amber-300', hex: '#f59e0b' },
-  dead: { label: 'Dead', pill: 'bg-red-100 text-red-700 ring-red-300', hex: '#ef4444' },
+  alive: { label: 'Alive', pill: 'bg-emerald-100 text-emerald-700 ring-emerald-300', hex: '#4EA07E' },
+  draining: { label: 'Draining', pill: 'bg-amber-100 text-amber-800 ring-amber-300', hex: '#E0A44E' },
+  dead: { label: 'Dead', pill: 'bg-red-100 text-red-700 ring-red-300', hex: '#D26B66' },
 };
 
 export const EXECUTION_STYLE: Record<string, StatusStyle> = {
-  running: { label: 'Running', pill: 'bg-blue-100 text-blue-700 ring-blue-300', hex: '#3b82f6' },
-  succeeded: { label: 'Succeeded', pill: 'bg-emerald-100 text-emerald-700 ring-emerald-300', hex: '#10b981' },
-  failed: { label: 'Failed', pill: 'bg-red-100 text-red-700 ring-red-300', hex: '#ef4444' },
+  running: { label: 'Running', pill: 'bg-blue-100 text-blue-700 ring-blue-300', hex: '#6E93DE' },
+  succeeded: { label: 'Succeeded', pill: 'bg-emerald-100 text-emerald-700 ring-emerald-300', hex: '#4EA07E' },
+  failed: { label: 'Failed', pill: 'bg-red-100 text-red-700 ring-red-300', hex: '#D26B66' },
 };
 
 export const ALL_JOB_STATUSES: JobStatus[] = ['queued', 'scheduled', 'running', 'retrying', 'completed', 'dead', 'cancelled'];
