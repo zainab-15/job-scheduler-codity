@@ -5,6 +5,7 @@ import { QueryState } from '../components/QueryState';
 import { EmptyState } from '../components/EmptyState';
 import { SaturationBar } from '../components/SaturationBar';
 import { Button, Card, Field, PageHeader, inputClass } from '../components/ui';
+import { ChevronLeftIcon, PauseIcon, PlayIcon, PlusIcon } from '../components/icons';
 
 function CreateQueue({ projectId }: { projectId: string }) {
   const [open, setOpen] = useState(false);
@@ -16,7 +17,7 @@ function CreateQueue({ projectId }: { projectId: string }) {
   if (!open)
     return (
       <Button variant="primary" onClick={() => setOpen(true)}>
-        + New queue
+        <PlusIcon width={16} height={16} /> New queue
       </Button>
     );
 
@@ -30,12 +31,12 @@ function CreateQueue({ projectId }: { projectId: string }) {
             { onSuccess: () => { setName(''); setOpen(false); } },
           );
         }}
-        className="space-y-2"
+        className="space-y-3"
       >
         <Field label="Name">
-          <input required value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="emails" />
+          <input required value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="emails" autoFocus />
         </Field>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-3">
           <Field label="Concurrency limit">
             <input type="number" min={1} value={concurrency} onChange={(e) => setConcurrency(+e.target.value)} className={inputClass} />
           </Field>
@@ -69,8 +70,8 @@ export function QueuesPage() {
         subtitle="Each queue enforces its own concurrency limit."
         actions={
           <div className="flex items-center gap-3">
-            <Link to="/projects" className="text-sm text-slate-500 hover:text-slate-800">
-              ← Projects
+            <Link to="/projects" className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-800">
+              <ChevronLeftIcon width={15} height={15} /> Projects
             </Link>
             {projectId && <CreateQueue projectId={projectId} />}
           </div>
@@ -81,33 +82,36 @@ export function QueuesPage() {
           page.data.length === 0 ? (
             <EmptyState title="No queues yet" hint="Create a queue, then enqueue jobs into it." />
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {page.data.map((q) => (
-                <Card key={q.id} className={q.is_paused ? 'border-amber-300 bg-amber-50' : ''}>
-                  <div className="flex flex-wrap items-center justify-between gap-3">
+                <Card key={q.id} className={q.is_paused ? 'border-amber-300 bg-amber-50/60' : ''}>
+                  <div className="flex flex-wrap items-center justify-between gap-4">
                     <div className="min-w-0">
-                      <Link to={`/queues/${q.id}`} className="font-medium text-slate-900 hover:text-indigo-600">
-                        {q.name}
-                      </Link>
-                      {q.is_paused && (
-                        <span className="ml-2 rounded bg-amber-500 px-1.5 py-0.5 text-xs font-semibold text-white">PAUSED</span>
-                      )}
-                      <div className="mt-1 text-xs text-slate-500">priority {q.priority}</div>
+                      <div className="flex items-center gap-2">
+                        <Link to={`/queues/${q.id}`} className="text-[0.95rem] font-semibold text-slate-900 hover:text-indigo-700">
+                          {q.name}
+                        </Link>
+                        {q.is_paused && (
+                          <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-white">Paused</span>
+                        )}
+                      </div>
+                      <div className="mt-1 text-xs font-medium text-slate-500">priority {q.priority}</div>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                       <SaturationBar running={q.stat_running} limit={q.concurrency_limit} />
-                      <div className="flex gap-3 text-xs tabular-nums text-slate-600">
+                      <div className="flex items-center gap-3 text-xs font-medium tabular-nums text-slate-600">
                         <span>{q.stat_queued} queued</span>
                         <span className="text-emerald-600">{q.stat_completed} done</span>
                         {q.stat_dead > 0 && (
-                          <span className="rounded bg-red-100 px-1.5 font-semibold text-red-700">{q.stat_dead} dead</span>
+                          <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">{q.stat_dead} dead</span>
                         )}
                       </div>
                       <Button
                         onClick={() => pauseResume.mutate({ queueId: q.id, pause: !q.is_paused })}
                         disabled={pauseResume.isPending}
                       >
+                        {q.is_paused ? <PlayIcon width={14} height={14} /> : <PauseIcon width={14} height={14} />}
                         {q.is_paused ? 'Resume' : 'Pause'}
                       </Button>
                     </div>

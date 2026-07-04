@@ -4,6 +4,7 @@ import { useCreateProject, useDeleteProject, useProjects } from '../api/hooks';
 import { QueryState } from '../components/QueryState';
 import { EmptyState } from '../components/EmptyState';
 import { Button, Card, Field, PageHeader, inputClass } from '../components/ui';
+import { ArrowRightIcon, LayersIcon, PlusIcon, TrashIcon } from '../components/icons';
 
 function CreateProject() {
   const [open, setOpen] = useState(false);
@@ -14,7 +15,7 @@ function CreateProject() {
   if (!open)
     return (
       <Button variant="primary" onClick={() => setOpen(true)}>
-        + New project
+        <PlusIcon width={16} height={16} /> New project
       </Button>
     );
 
@@ -34,10 +35,10 @@ function CreateProject() {
             },
           );
         }}
-        className="space-y-2"
+        className="space-y-3"
       >
         <Field label="Name">
-          <input required value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+          <input required value={name} onChange={(e) => setName(e.target.value)} className={inputClass} autoFocus />
         </Field>
         <Field label="Description (optional)">
           <input value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} />
@@ -67,30 +68,37 @@ export function ProjectsPage() {
           page.data.length === 0 ? (
             <EmptyState title="No projects yet" hint="Create a project to hold your queues and jobs." />
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {page.data.map((p) => (
-                <Card key={p.id} className="flex flex-col justify-between">
+                <Card key={p.id} className="group flex flex-col justify-between transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-card">
                   <div>
-                    <Link to={`/projects/${p.id}`} className="text-base font-medium text-slate-900 hover:text-indigo-600">
-                      {p.name}
-                    </Link>
-                    {p.description && <p className="mt-1 text-sm text-slate-500">{p.description}</p>}
-                    <p className="mt-2 text-xs text-slate-400">{p.queue_count ?? 0} queue(s)</p>
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100">
+                        <LayersIcon width={19} height={19} />
+                      </div>
+                      <div className="min-w-0">
+                        <Link to={`/projects/${p.id}`} className="block truncate text-[0.95rem] font-semibold text-slate-900 group-hover:text-indigo-700">
+                          {p.name}
+                        </Link>
+                        <p className="mt-0.5 text-xs font-medium text-slate-400">{p.queue_count ?? 0} queue(s)</p>
+                      </div>
+                    </div>
+                    {p.description && <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-slate-500">{p.description}</p>}
                   </div>
-                  <div className="mt-3 flex justify-between">
-                    <Link to={`/projects/${p.id}`} className="text-sm text-indigo-600 hover:underline">
-                      Open queues →
+                  <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-3">
+                    <Link to={`/projects/${p.id}`} className="inline-flex items-center gap-1 text-sm font-medium text-indigo-700 hover:text-indigo-800">
+                      Open queues <ArrowRightIcon width={14} height={14} />
                     </Link>
-                    <Button
-                      variant="ghost"
-                      className="text-red-600 hover:bg-red-50"
+                    <button
+                      type="button"
                       disabled={del.isPending}
                       onClick={() => {
                         if (confirm(`Delete project "${p.name}"? This is blocked if it has pending work.`)) del.mutate(p.id);
                       }}
+                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                     >
-                      Delete
-                    </Button>
+                      <TrashIcon width={14} height={14} /> Delete
+                    </button>
                   </div>
                 </Card>
               ))}

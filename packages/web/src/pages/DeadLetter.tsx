@@ -45,40 +45,43 @@ export function DeadLetterPage() {
             page.data.length === 0 ? (
               <EmptyState variant="win" title="Nothing dead-lettered" hint="Every job in this project either succeeded or is still in flight." />
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+              <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-soft">
                 <table className="min-w-full text-sm">
-                  <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                  <thead className="border-b border-slate-200/70 bg-slate-50/70 text-left text-[0.7rem] uppercase tracking-[0.06em] text-slate-500">
                     <tr>
-                      <th className="px-3 py-2 font-medium">Reason</th>
-                      <th className="px-3 py-2 font-medium">Attempts</th>
-                      <th className="px-3 py-2 font-medium">Final error</th>
-                      <th className="px-3 py-2 font-medium">Died</th>
-                      <th className="px-3 py-2" />
+                      <th className="px-4 py-3 font-semibold">Reason</th>
+                      <th className="px-4 py-3 font-semibold">Attempts</th>
+                      <th className="px-4 py-3 font-semibold">Final error</th>
+                      <th className="px-4 py-3 font-semibold">Died</th>
+                      <th className="px-4 py-3" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {page.data.map((d) => (
-                      <tr key={d.id} className="hover:bg-slate-50">
-                        <td className="px-3 py-2">
-                          <span className="rounded bg-red-100 px-1.5 py-0.5 font-mono text-xs text-red-700">{d.death_reason}</span>
+                      <tr key={d.id} className="transition-colors hover:bg-slate-50/70">
+                        <td className="px-4 py-3">
+                          <span className="rounded-full bg-red-100 px-2 py-0.5 font-mono text-xs font-semibold text-red-700">{d.death_reason}</span>
                         </td>
-                        <td className="px-3 py-2 tabular-nums">{d.attempts}</td>
-                        <td className="max-w-xs truncate px-3 py-2 font-mono text-xs text-slate-600" title={d.final_error ?? ''}>
+                        <td className="px-4 py-3 tnum text-slate-600">{d.attempts}</td>
+                        <td className="max-w-xs truncate px-4 py-3 font-mono text-xs text-slate-600" title={d.final_error ?? ''}>
                           {d.final_error ?? '—'}
                         </td>
-                        <td className="px-3 py-2 text-slate-500">{formatRelative(d.died_at)}</td>
-                        <td className="px-3 py-2">
-                          <div className="flex justify-end gap-1.5">
+                        <td className="px-4 py-3 text-slate-500">{formatRelative(d.died_at)}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-2">
                             {d.job_id && (
-                              <Link to={`/jobs/${d.job_id}`} className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50">
+                              <Link
+                                to={`/jobs/${d.job_id}`}
+                                className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 shadow-soft transition hover:border-slate-300 hover:bg-slate-50"
+                              >
                                 Detail
                               </Link>
                             )}
-                            <Button className="text-xs" variant="primary" disabled={requeue.isPending} onClick={() => requeue.mutate(d.id)}>
+                            <Button className="px-2.5 py-1.5 text-xs" variant="primary" disabled={requeue.isPending} onClick={() => requeue.mutate(d.id)}>
                               Requeue
                             </Button>
                             <Button
-                              className="text-xs"
+                              className="px-2.5 py-1.5 text-xs"
                               disabled={discard.isPending}
                               onClick={() => {
                                 if (confirm('Discard this dead-letter record?')) discard.mutate(d.id);

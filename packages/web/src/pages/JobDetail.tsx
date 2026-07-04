@@ -4,7 +4,8 @@ import { QueryState } from '../components/QueryState';
 import { Timeline } from '../components/Timeline';
 import { LogViewer } from '../components/LogViewer';
 import { StatusPill, ExecutionPill } from '../components/StatusPill';
-import { Button, Card, PageHeader } from '../components/ui';
+import { Button, Card, PageHeader, SectionLabel } from '../components/ui';
+import { ChevronLeftIcon } from '../components/icons';
 import { formatDateTime, formatDuration, isTerminal } from '../lib/format';
 import type { JobDetail } from '../api/types';
 
@@ -13,13 +14,13 @@ function ExecutionsTable({ detail }: { detail: JobDetail }) {
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full text-sm">
-        <thead className="text-left text-xs uppercase text-slate-500">
+        <thead className="text-left text-[0.7rem] uppercase tracking-[0.06em] text-slate-500">
           <tr>
-            <th className="py-1.5 pr-3 font-medium">#</th>
-            <th className="py-1.5 pr-3 font-medium">Status</th>
-            <th className="py-1.5 pr-3 font-medium">Worker</th>
-            <th className="py-1.5 pr-3 font-medium">Duration</th>
-            <th className="py-1.5 pr-3 font-medium">Error</th>
+            <th className="py-2 pr-3 font-semibold">#</th>
+            <th className="py-2 pr-3 font-semibold">Status</th>
+            <th className="py-2 pr-3 font-semibold">Worker</th>
+            <th className="py-2 pr-3 font-semibold">Duration</th>
+            <th className="py-2 pr-3 font-semibold">Error</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
@@ -27,13 +28,13 @@ function ExecutionsTable({ detail }: { detail: JobDetail }) {
             .sort((a, b) => a.attempt - b.attempt)
             .map((ex) => (
               <tr key={ex.id}>
-                <td className="py-1.5 pr-3 tabular-nums">{ex.attempt}</td>
-                <td className="py-1.5 pr-3">
+                <td className="py-2 pr-3 tnum">{ex.attempt}</td>
+                <td className="py-2 pr-3">
                   <ExecutionPill status={ex.status} />
                 </td>
-                <td className="py-1.5 pr-3 font-mono text-xs text-slate-500">{ex.worker_id ? ex.worker_id.slice(0, 8) : '—'}</td>
-                <td className="py-1.5 pr-3 text-slate-600">{formatDuration(ex.duration_ms)}</td>
-                <td className="py-1.5 pr-3 font-mono text-xs text-red-600">{ex.error ?? '—'}</td>
+                <td className="py-2 pr-3 font-mono text-xs text-slate-500">{ex.worker_id ? ex.worker_id.slice(0, 8) : '—'}</td>
+                <td className="py-2 pr-3 text-slate-600">{formatDuration(ex.duration_ms)}</td>
+                <td className="py-2 pr-3 font-mono text-xs text-red-600">{ex.error ?? '—'}</td>
               </tr>
             ))}
         </tbody>
@@ -53,8 +54,8 @@ export function JobDetailPage() {
       <PageHeader
         title="Job detail"
         actions={
-          <Link to="/jobs" className="text-sm text-slate-500 hover:text-slate-800">
-            ← Jobs
+          <Link to="/jobs" className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-800">
+            <ChevronLeftIcon width={15} height={15} /> Jobs
           </Link>
         }
       />
@@ -65,19 +66,20 @@ export function JobDetailPage() {
           const canRetry = j.status === 'dead' || j.status === 'retrying';
           const canCancel = j.status === 'queued' || j.status === 'scheduled' || j.status === 'retrying';
           return (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <Card>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm">{j.handler_name}</span>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="font-mono text-sm font-semibold text-slate-900">{j.handler_name}</span>
                       <StatusPill status={j.status} />
-                      <span className="text-xs text-slate-400">{j.type}</span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">{j.type}</span>
                     </div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      id {j.id.slice(0, 8)} · attempts {j.attempts}/{j.max_attempts} · created {formatDateTime(j.created_at)}
+                    <div className="mt-2 text-xs text-slate-500">
+                      id <span className="font-mono text-slate-600">{j.id.slice(0, 8)}</span> · attempts{' '}
+                      <span className="tnum">{j.attempts}/{j.max_attempts}</span> · created {formatDateTime(j.created_at)}
                     </div>
-                    {j.last_error && <div className="mt-2 rounded bg-red-50 px-2 py-1 font-mono text-xs text-red-700">{j.last_error}</div>}
+                    {j.last_error && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 font-mono text-xs text-red-700">{j.last_error}</div>}
                   </div>
                   <div className="flex gap-2">
                     <Button variant="primary" disabled={!canRetry || retry.isPending} onClick={() => jobId && retry.mutate(jobId)}>
@@ -90,13 +92,13 @@ export function JobDetailPage() {
                 </div>
               </Card>
 
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                 <Card>
-                  <h2 className="mb-3 text-sm font-medium text-slate-700">Lifecycle</h2>
+                  <SectionLabel className="mb-4">Lifecycle</SectionLabel>
                   <Timeline detail={detail} />
                 </Card>
                 <Card>
-                  <h2 className="mb-3 text-sm font-medium text-slate-700">Attempts (retry history)</h2>
+                  <SectionLabel className="mb-4">Attempts · retry history</SectionLabel>
                   <ExecutionsTable detail={detail} />
                 </Card>
               </div>
@@ -104,8 +106,8 @@ export function JobDetailPage() {
               <LogViewer logs={detail.logs} terminal={terminal} />
 
               <Card>
-                <h2 className="mb-2 text-sm font-medium text-slate-700">Payload</h2>
-                <pre className="overflow-x-auto rounded bg-slate-50 p-3 font-mono text-xs text-slate-700">{JSON.stringify(j.payload, null, 2)}</pre>
+                <SectionLabel className="mb-3">Payload</SectionLabel>
+                <pre className="overflow-x-auto rounded-xl bg-slate-900 p-4 font-mono text-xs leading-relaxed text-slate-200">{JSON.stringify(j.payload, null, 2)}</pre>
               </Card>
             </div>
           );

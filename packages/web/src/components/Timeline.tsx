@@ -52,16 +52,16 @@ export function Timeline({ detail }: { detail: JobDetail }) {
   else if (job.status === 'retrying') steps.push({ label: `Retrying — next run ${formatDateTime(job.run_at)}`, at: job.run_at, state: 'current' });
 
   const dotClass = (s: Step['state']) =>
-    s === 'failed' ? 'bg-red-500' : s === 'current' ? 'bg-blue-500 animate-pulse' : s === 'pending' ? 'bg-slate-300' : 'bg-emerald-500';
+    s === 'failed' ? 'bg-red-500' : s === 'current' ? 'bg-indigo-500 animate-pulse' : s === 'pending' ? 'bg-slate-300' : 'bg-emerald-500';
 
   return (
-    <ol className="relative ml-2 border-l border-slate-200 pl-4">
+    <ol className="relative ml-2 border-l border-slate-200 pl-5">
       {steps.map((s, i) => (
-        <li key={i} className="mb-4 last:mb-0">
+        <li key={i} className="mb-5 last:mb-0">
           <span className={`absolute -left-[7px] mt-1 h-3 w-3 rounded-full ring-4 ring-white ${dotClass(s.state)}`} aria-hidden />
-          <div className="text-sm font-medium text-slate-800">{s.label}</div>
-          <div className="text-xs text-slate-500">{formatDateTime(s.at)}</div>
-          {s.note && <div className="mt-0.5 rounded bg-red-50 px-2 py-1 font-mono text-xs text-red-700">{s.note}</div>}
+          <div className="text-sm font-semibold text-slate-800">{s.label}</div>
+          <div className="mt-0.5 text-xs text-slate-500">{formatDateTime(s.at)}</div>
+          {s.note && <div className="mt-1.5 rounded-lg bg-red-50 px-2.5 py-1.5 font-mono text-xs text-red-700">{s.note}</div>}
         </li>
       ))}
     </ol>

@@ -16,9 +16,9 @@ export function QueryState<T>({
 }) {
   if (query.isLoading) {
     return (
-      <div className="space-y-2" aria-busy="true" aria-live="polite">
+      <div className="space-y-2.5" aria-busy="true" aria-live="polite">
         {Array.from({ length: skeletonRows }).map((_, i) => (
-          <div key={i} className="h-10 animate-pulse rounded bg-slate-200" />
+          <div key={i} className="h-12 animate-pulse rounded-xl border border-slate-200/70 bg-slate-100" />
         ))}
       </div>
     );
@@ -26,13 +26,13 @@ export function QueryState<T>({
   if (query.isError) {
     const { code, message } = apiError(query.error);
     return (
-      <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-        <div className="font-medium">Couldn’t load ({code})</div>
-        <div className="mt-1 text-red-700">{message}</div>
+      <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
+        <div className="font-semibold">Couldn’t load ({code})</div>
+        <div className="mt-1 text-red-700/90">{message}</div>
         <button
           type="button"
           onClick={() => query.refetch()}
-          className="mt-3 rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+          className="mt-4 rounded-xl border border-red-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100"
         >
           Retry
         </button>
