@@ -60,7 +60,10 @@ export function JobExplorerPage() {
   const type = params.get('type') ?? '';
   const sort = params.get('sort') ?? 'created_at:desc';
   const offset = Number(params.get('offset') ?? 0);
-  const statuses = useMemo(() => (params.get('status') ? params.get('status')!.split(',') : []), [params]);
+  // filter(Boolean): a hand-crafted URL like ?status=queued, would otherwise
+  // split to ['queued',''] and send an empty status value that the API enum
+  // rejects with a 400, killing the whole list.
+  const statuses = useMemo(() => (params.get('status') ? params.get('status')!.split(',').filter(Boolean) : []), [params]);
 
   const queues = useQueues(projectId || undefined);
 

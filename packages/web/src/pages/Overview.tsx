@@ -133,26 +133,26 @@ export function OverviewPage() {
 
             <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
               <Card className="lg:col-span-2">
-                <div className="mb-2 text-sm font-medium text-slate-700">Throughput (24h)</div>
+                <h2 className="mb-2 text-sm font-medium text-slate-700">Throughput (24h)</h2>
                 <QueryState query={throughput} skeletonRows={3}>
                   {(t) => <ThroughputChart data={t} />}
                 </QueryState>
               </Card>
               <Card>
-                <div className="mb-2 text-sm font-medium text-slate-700">Job status mix</div>
+                <h2 className="mb-2 text-sm font-medium text-slate-700">Job status mix</h2>
                 <StatusDonut o={o} />
               </Card>
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
               <Card>
-                <div className="mb-2 text-sm font-medium text-slate-700">
+                <h2 className="mb-2 text-sm font-medium text-slate-700">
                   Worker fleet · {o.workers.alive} alive
-                </div>
+                </h2>
                 <WorkerBars o={o} />
               </Card>
               <Card>
-                <div className="mb-2 text-sm font-medium text-slate-700">Scale</div>
+                <h2 className="mb-2 text-sm font-medium text-slate-700">Scale</h2>
                 <div className="grid grid-cols-2 gap-3">
                   <Tile label="Projects" value={o.projects} to="/projects" />
                   <Tile label="Queues" value={o.queues} />

@@ -25,11 +25,6 @@ export interface PaginatedResult<T> {
   pagination: Pagination;
 }
 
-export interface AuthUser {
-  id: string;
-  email: string;
-  org_id?: string;
-}
 export interface Organization {
   id: string;
   name: string;
@@ -122,7 +117,7 @@ export interface JobExecutionRow {
   job_id: string;
   worker_id: string | null;
   attempt: number;
-  status: ExecutionStatus | string;
+  status: ExecutionStatus;
   started_at: string;
   finished_at: string | null;
   duration_ms: number | null;

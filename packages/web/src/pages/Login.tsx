@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { apiError } from '../api/client';
 import { Button, Field, inputClass } from '../components/ui';
@@ -14,9 +14,10 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (isAuthed) {
-    navigate('/overview', { replace: true });
-  }
+  // Already-authed user landing on /login: redirect declaratively (never call
+  // navigate() during render — that's a React anti-pattern that warns and
+  // double-renders).
+  if (isAuthed) return <Navigate to="/overview" replace />;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

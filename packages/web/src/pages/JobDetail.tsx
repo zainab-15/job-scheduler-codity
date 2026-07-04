@@ -92,11 +92,11 @@ export function JobDetailPage() {
 
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <Card>
-                  <div className="mb-3 text-sm font-medium text-slate-700">Lifecycle</div>
+                  <h2 className="mb-3 text-sm font-medium text-slate-700">Lifecycle</h2>
                   <Timeline detail={detail} />
                 </Card>
                 <Card>
-                  <div className="mb-3 text-sm font-medium text-slate-700">Attempts (retry history)</div>
+                  <h2 className="mb-3 text-sm font-medium text-slate-700">Attempts (retry history)</h2>
                   <ExecutionsTable detail={detail} />
                 </Card>
               </div>
@@ -104,7 +104,7 @@ export function JobDetailPage() {
               <LogViewer logs={detail.logs} terminal={terminal} />
 
               <Card>
-                <div className="mb-2 text-sm font-medium text-slate-700">Payload</div>
+                <h2 className="mb-2 text-sm font-medium text-slate-700">Payload</h2>
                 <pre className="overflow-x-auto rounded bg-slate-50 p-3 font-mono text-xs text-slate-700">{JSON.stringify(j.payload, null, 2)}</pre>
               </Card>
             </div>

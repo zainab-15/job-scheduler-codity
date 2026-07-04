@@ -42,6 +42,16 @@ export function AppShell() {
               )}
             </NavLink>
           ))}
+          {/* Mobile-only logout: the desktop footer below is hidden when the
+              sidebar collapses to a top strip, so surface Log out inline here
+              so touch users always have a sign-out affordance. */}
+          <button
+            type="button"
+            onClick={logout}
+            className="hidden rounded px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 max-sm:block max-sm:whitespace-nowrap"
+          >
+            Log out
+          </button>
         </nav>
         <div className="border-t border-slate-800 px-4 py-3 text-xs text-slate-400 max-sm:hidden">
           <div className="truncate">{userEmail}</div>

@@ -18,6 +18,14 @@ function parsePayload(raw: string): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
+/** Local "now + 1 min" as a datetime-local value (YYYY-MM-DDTHH:mm). Used as
+ *  the input's `min` so a user can't pick a past instant that the API rejects. */
+function minDatetimeLocal(): string {
+  const d = new Date(Date.now() + 60_000);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function CreateJobForm({ queueId }: { queueId: string }) {
   const create = useCreateJob(queueId);
   const [type, setType] = useState<CreateJobBody['type']>('immediate');
@@ -40,13 +48,24 @@ function CreateJobForm({ queueId }: { queueId: string }) {
     }
     const body: CreateJobBody = { type, handler_name: handler, payload: parsed, priority };
     if (type === 'delayed') body.delay_seconds = delaySeconds;
-    if (type === 'scheduled') body.scheduled_at = new Date(scheduledAt).toISOString();
+    if (type === 'scheduled') {
+      // The API rejects a non-future scheduled_at with a 400 (jobs.ts). Guard
+      // client-side so a near-now datetime-local pick surfaces inline here,
+      // not as an opaque toast after the round trip. (datetime-local is
+      // local wall-clock; new Date() interprets it locally -> correct UTC.)
+      const at = new Date(scheduledAt);
+      if (Number.isNaN(at.getTime()) || at.getTime() <= Date.now()) {
+        setPayloadError('Scheduled time must be in the future.');
+        return;
+      }
+      body.scheduled_at = at.toISOString();
+    }
     create.mutate(body);
   }
 
   return (
     <Card>
-      <div className="mb-3 text-sm font-medium text-slate-700">Enqueue a job</div>
+      <h2 className="mb-3 text-sm font-medium text-slate-700">Enqueue a job</h2>
       <form onSubmit={submit} className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <Field label="Type">
@@ -72,7 +91,14 @@ function CreateJobForm({ queueId }: { queueId: string }) {
         )}
         {type === 'scheduled' && (
           <Field label="Run at (future)">
-            <input type="datetime-local" required value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className={inputClass} />
+            <input
+              type="datetime-local"
+              required
+              min={minDatetimeLocal()}
+              value={scheduledAt}
+              onChange={(e) => setScheduledAt(e.target.value)}
+              className={inputClass}
+            />
           </Field>
         )}
         <Field label="Priority (0–9)">
@@ -99,7 +125,7 @@ function CreateScheduleForm({ queueId }: { queueId: string }) {
 
   return (
     <Card>
-      <div className="mb-3 text-sm font-medium text-slate-700">New recurring schedule</div>
+      <h2 className="mb-3 text-sm font-medium text-slate-700">New recurring schedule</h2>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -132,7 +158,7 @@ function StatsCard({ stats }: { stats: QueueStatsResult }) {
   const entries = Object.entries(counts) as Array<[keyof typeof counts, number]>;
   return (
     <Card>
-      <div className="mb-3 text-sm font-medium text-slate-700">Stats (last {stats.window_hours}h)</div>
+      <h2 className="mb-3 text-sm font-medium text-slate-700">Stats (last {stats.window_hours}h)</h2>
       <div className="grid grid-cols-3 gap-2 text-center">
         {entries.map(([status, n]) => (
           <div key={status} className="rounded border border-slate-200 py-1.5">
@@ -165,7 +191,7 @@ function ConfigCard({ q }: { q: QueueDetail }) {
   return (
     <Card>
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-medium text-slate-700">Configuration</span>
+        <h2 className="text-sm font-medium text-slate-700">Configuration</h2>
         {q.is_paused && <span className="rounded bg-amber-500 px-1.5 py-0.5 text-xs font-semibold text-white">PAUSED</span>}
       </div>
       <dl className="space-y-2 text-sm">
