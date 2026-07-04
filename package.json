@@ -10,12 +10,13 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "npm run build -w @scheduler/shared && npm run build -w @scheduler/worker && npm run build -w @scheduler/api",
+    "build": "npm run build -w @scheduler/shared && npm run build -w @scheduler/worker && npm run build -w @scheduler/api && npm run build -w @scheduler/web",
     "migrate": "npm run migrate -w @scheduler/shared",
     "test": "npm run test -w @scheduler/shared && npm run test -w @scheduler/worker && npm run test -w @scheduler/api",
     "test:int": "npm run test:int -w @scheduler/shared && npm run test:int -w @scheduler/worker && npm run test:int -w @scheduler/api",
     "dev:worker": "npm run dev -w @scheduler/worker",
     "dev:api": "npm run dev -w @scheduler/api",
+    "dev:web": "npm run dev -w @scheduler/web",
     "seed": "npm run seed -w @scheduler/api",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down"

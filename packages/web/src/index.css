@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-slate-100 text-slate-900 antialiased;
+  }
+  /* R22: a visible focus ring everywhere, never rely on the browser default
+     being suppressed. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-indigo-500 ring-offset-1;
+  }
+}
