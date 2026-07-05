@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const { data } = await api.post<LoginResponse>('/api/v1/auth/login', { email, password });
+      const { data } = await api.post<LoginResponse>('/auth/login', { email, password });
       // login response has no org name; fetch it from /me for the shell header.
       setToken(data.token);
       const me = await api.get<MeResponse>('/auth/me');
